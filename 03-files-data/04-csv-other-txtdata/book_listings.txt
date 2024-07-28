@@ -1,0 +1,2 @@
+Title: The Go Programming Language, Author: Alan A. Donovan, Pages: 380
+Title: Go in Action, Author: Bill Kennedy, Pages: 300
