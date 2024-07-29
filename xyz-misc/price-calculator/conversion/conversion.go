@@ -1,4 +1,4 @@
-package convert
+package conversion
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 )
 
 func StringsToFloats(strings []string) ([]float64, error) {
-	floats := make([]float64, len(strings))
+	var floats []float64
 
 	for _, stringVal := range strings {
 		floatPrice, err := strconv.ParseFloat(stringVal, 64)

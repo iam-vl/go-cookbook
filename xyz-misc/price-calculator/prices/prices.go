@@ -3,14 +3,14 @@ package prices
 import (
 	"fmt"
 
-	"github.com/iam-vl/go-cookbook/xyz-misc/price-calculator/convert"
+	"github.com/iam-vl/go-cookbook/xyz-misc/price-calculator/conversion"
 	"github.com/iam-vl/go-cookbook/xyz-misc/price-calculator/filemanager"
 )
 
 type TaxIncludedPriceJob struct {
 	TaxRate           float64
 	InputPrices       []float64
-	TaxIncludedPrices map[string]float64
+	TaxIncludedPrices map[string]string
 }
 
 func (job *TaxIncludedPriceJob) LoadData() {
@@ -19,7 +19,7 @@ func (job *TaxIncludedPriceJob) LoadData() {
 		fmt.Println("Failed to read the lines:", err)
 		return
 	}
-	prices, err := convert.StringsToFloats(lines)
+	prices, err := conversion.StringsToFloats(lines)
 	if err != nil {
 		fmt.Println("Failed to convert to float:", err)
 		return
@@ -34,7 +34,11 @@ func (job *TaxIncludedPriceJob) Process() {
 		taxInPrice := price * (1 + job.TaxRate)
 		result[fmt.Sprintf("%.2f", price)] = fmt.Sprintf("%.2f", taxInPrice)
 	}
-	fmt.Printf("Result: %+v\n", result)
+	// fmt.Printf("Result: %+v\n", result)
+	job.TaxIncludedPrices = result
+	filemanager.WriteJSON(fmt.Sprintf("result_%.0f.json", job.TaxRate*100), job)
+
+	// filemanager.WriteJson(fmt.Sprintf("result_%.0f.json", job.TaxRate*100), job)
 }
 
 func NewTaxIncludedPriceJob(taxRate float64) *TaxIncludedPriceJob {
