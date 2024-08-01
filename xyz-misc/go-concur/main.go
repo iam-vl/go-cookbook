@@ -17,7 +17,7 @@ func slowGreet(phrase string, doneChan chan bool) {
 	// Explicitly close the channel
 	close(doneChan)
 }
-func main() {
+func mainSlowGreet() {
 	done := make(chan bool)
 
 	go greet("Nice to meet you!", done)
