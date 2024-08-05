@@ -1,35 +1,30 @@
 package main
 
-import (
-	"encoding/json"
-	"fmt"
-	"log"
-	"sync"
+import "strconv"
+
+var (
+	in    = make(chan string)
+	out   = make(chan int)
+	errCh = make(chan error)
 )
 
-func main() {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go receiveOrders(&wg)
-	wg.Wait()
-	fmt.Println(orders)
+func worker(in <-chan string, out chan<- int, errChan chan<- error) {
+	for msg := range in {
+		val, err := strconv.Atoi(msg)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		out <- val
+	}
 }
 
-func receiveOrders(wg *sync.WaitGroup) {
-	for _, rawOrder := range rawOrders {
-		var newOrder Order
-		err := json.Unmarshal([]byte(rawOrder), &newOrder)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		orders = append(orders, newOrder)
-	}
-	wg.Done()
+func main() {
+
 }
 
 var rawOrders = []string{
-	`{"ProductCode": 1111, "Quantity": 5, "Status": 1}`,
+	`{"ProductCode": 1111, "Quantity": -5, "Status": 1}`,
 	`{"ProductCode": 2222, "Quantity": 42.3, "Status": 1}`,
 	`{"ProductCode": 3333, "Quantity": 19, "Status": 1}`,
 	`{"ProductCode": 4444, "Quantity": 8, "Status": 1}`,

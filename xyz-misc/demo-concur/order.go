@@ -8,6 +8,11 @@ type Order struct {
 	Status      orderStatus
 }
 
+type InvalidOrder struct {
+	order Order
+	err   error
+}
+
 func (o Order) String() string {
 	return fmt.Sprintf("Print code: %v, Qty: %v, Status: %v\n", o.ProductCode, o.Quantity, OrderStatusToText(o.Status))
 }
@@ -27,8 +32,6 @@ func OrderStatusToText(o orderStatus) string {
 }
 
 type orderStatus int
-
-var orders []Order
 
 const (
 	none orderStatus = iota
