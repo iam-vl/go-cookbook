@@ -1,3 +1,10 @@
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
 func DemoForLoop() {
 	var wg sync.WaitGroup
 	// orders are blocking each other
@@ -150,37 +157,6 @@ func MainDemoOrders() {
 	}(invalidOrderCh)
 
 	wg.Wait()
-}
-
-func validateOrders(in <-chan Order, out chan<- Order, errCh chan<- InvalidOrder) {
-	// order := <-in
-	for order := range in {
-		if order.Quantity <= 0 {
-			errCh <- InvalidOrder{order: order, err: errors.New("Qty must be positive")}
-		} else {
-			out <- order
-		}
-	}
-	close(out)   // Tell go we're done sending data
-	close(errCh) // Tell go we're done sending data
-	// if order.Quantity <= 0 {
-	// 	errCh <- InvalidOrder{order: order, err: errors.New("Qty must be positive")}
-	// } else {
-	// 	out <- order
-	// }
-}
-func receiveOrders(out chan<- Order) { // send-only channel
-	for _, rawOrder := range rawOrders {
-		var newOrder Order
-		err := json.Unmarshal([]byte(rawOrder), &newOrder)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		out <- newOrder
-
-	}
-	close(out) // tell go we're done sending
 }
 
 // func receiveOrdersWg(wg *sync.WaitGroup) {
