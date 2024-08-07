@@ -17,13 +17,11 @@ func DemoPattern1() {
 	var wg sync.WaitGroup
 	// orders are blocking each other
 	var (
-		receivedOrdersCh = receiveOrders()
-		validOrderCh     = make(chan Order)
-		invalidOrderCh   = make(chan InvalidOrder)
+		receivedOrdersCh             = receiveOrders()
+		validOrderCh, invalidOrderCh = validateOrders(receivedOrdersCh)
+		reservedOrderCh              = reserveInventory(validOrderCh)
 	)
-
-	// go receiveOrders(receivedOrdersCh)
-	go validateOrders(receivedOrdersCh, validOrderCh, invalidOrderCh)
+	wg.Add(2)
 	wg.Add(1) // orders are blocking each other
 
 	go func(validOrderCh <-chan Order, invalidOrderCh <-chan InvalidOrder) {
@@ -45,26 +43,33 @@ func DemoPattern1() {
 				}
 			}
 		}
-		// select {
-		// case order := <-validOrderCh:
-		// 	fmt.Printf("Valid order received: %v", order)
-		// case order := <-invalidOrderCh:
-		// 	fmt.Printf("Invalid order received: %v.Issue: %v\n", order.order, order.err)
-		// }
 		wg.Done()
 	}(validOrderCh, invalidOrderCh)
 
 	wg.Wait()
 }
 
+func reserveInventory(in <-chan Order) <-chan Order {
+	out := make(chan Order)
+	go func() {
+		for o := range in {
+			o.Status = reserved
+			out <- o
+		}
+		close(out)
+	}()
+	return out
+}
+
 // func validateOrders(in <-chan Order, out chan<- Order, errCh chan<- InvalidOrder) {
 func validateOrders(in <-chan Order) (<-chan Order, <-chan InvalidOrder) {
 	// order := <-in
 	out := make(chan Order)
-	errCh := make(chan InvalidOrder, 1)
+	errCh := make(chan InvalidOrder, 1) // To make sure it wont invalidate
 	go func() {
 		for order := range in {
 			if order.Quantity <= 0 {
+				// can handle one error, not multiple
 				errCh <- InvalidOrder{order: order, err: errors.New("Qty must be positive")}
 			} else {
 				out <- order
@@ -72,14 +77,8 @@ func validateOrders(in <-chan Order) (<-chan Order, <-chan InvalidOrder) {
 		}
 		close(out)   // Tell go we're done sending data
 		close(errCh) // Tell go we're done sending data
-
 	}()
-
-	// if order.Quantity <= 0 {
-	// 	errCh <- InvalidOrder{order: order, err: errors.New("Qty must be positive")}
-	// } else {
-	// 	out <- order
-	// }
+	return out, errCh
 }
 func receiveOrders() chan Order {
 	// func receiveOrders(out chan<- Order) { // send-only channel
