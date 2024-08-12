@@ -1,7 +1,8 @@
 package main
 
 func main() {
-	mainDemoLoop()
+	mainDemoLoopEncapsulate()
+	// mainDemoLoop()
 	// mainXFor()
 	// mainDemo01()
 	// exampleSelect()

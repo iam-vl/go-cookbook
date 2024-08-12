@@ -2,8 +2,53 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 )
+
+// var exampleEncapsulate() {
+// 	var (
+// 		in = make(chan string)
+// 	)
+// 	workerEncapsulate(in)
+// }
+
+// func workerEncapsulate(in <-chan string) (chan int, errCh error) {
+// 	out := make(chan int)
+// 	errCh := make(chan error)
+// 	// inflexible, but defensive
+// 	go func() {
+// 		for msg := range in {
+// 			i, err := strconv.Atoi(msg)
+// 			if err != nil {
+// 				errCh <- err
+// 				return
+// 			}
+// 			out <- i
+// 		}
+// 	}()
+// 	return out, errCh
+// }
+
+func exampleNonblocking() {
+	var (
+		in    = make(chan string)
+		out   = make(chan int)
+		errCh = make(chan error, 1)
+	)
+	worker(in, out, errCh)
+}
+
+func worker(in <-chan string, out chan<- int, errCh chan<- error) {
+	for msg := range in {
+		i, err := strconv.Atoi(msg)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		out <- i
+	}
+}
 
 func mainXFor() {
 	ch := make(chan string, 3)
