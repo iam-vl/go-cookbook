@@ -8,6 +8,42 @@ import (
 	"sync"
 )
 
+func mainDemoLoopReserve() {
+	var wg sync.WaitGroup
+	var (
+		receivedOrdersCh             = receiveOrderEncapsulate()
+		validOrderCh, invalidOrderCh = validateOrdersEncapsulate(receivedOrdersCh)
+		reservedInventoryCh          = reserveInventory(validOrderCh) // new
+	)
+	// wg.Add(1)
+	wg.Add(2)
+	go func(invalidOrderCh <-chan InvalidOrder) {
+		for order := range invalidOrderCh {
+			fmt.Printf("Invalid order received: %v. Issue: %v\n", order.order, order.err)
+		}
+		wg.Done()
+	}(invalidOrderCh)
+	go func(reservedInventoryCh <-chan Order) {
+		for order := range reservedInventoryCh {
+			fmt.Printf("Inventory reserved for: %v\n", order)
+		}
+		wg.Done()
+	}(reservedInventoryCh)
+	wg.Wait()
+}
+
+func reserveInventory(in <-chan Order) <-chan Order {
+	out := make(chan Order)
+	go func() {
+		for o := range in {
+			o.Status = reserved
+			out <- o
+		}
+		close(out)
+	}()
+	return out
+}
+
 func mainDemoLoopEncapsulate() {
 	var wg sync.WaitGroup
 	var (
@@ -33,7 +69,7 @@ func mainDemoLoopEncapsulate() {
 				}
 			case order, ok := <-invalidOrderCh:
 				if ok {
-					fmt.Printf("Valid order received: %v. Issue: %v\n", order.order, order.err)
+					fmt.Printf("Invalid order received: %v. Issue: %v\n", order.order, order.err)
 				} else {
 					break loop
 				}
@@ -57,6 +93,7 @@ func validateOrdersEncapsulate(in <-chan Order) (<-chan Order, <-chan InvalidOrd
 	go func() {
 		for order := range in { // we can handle one error, can't handle multiple
 			if order.Quantity > 0 {
+				fmt.Println("Validated order: %v", order)
 				out <- order
 			} else {
 				errCh <- InvalidOrder{order: order, err: errors.New("qty must be greater than zero")}
