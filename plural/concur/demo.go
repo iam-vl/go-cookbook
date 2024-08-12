@@ -17,35 +17,71 @@ func mainDemo01() {
 		invalidOrderCh   = make(chan InvalidOrder)
 	)
 	wg.Add(1)
-	// go receiveOrders(&wg)
 	go receiveOrders(receivedOrdersCh)
 	go validateOrders(receivedOrdersCh, validOrderCh, invalidOrderCh)
-	go func() {
-		order := <-validOrderCh
-		fmt.Println("Valid order received:", order)
+	go func(validOrderCh <-chan Order, invalidOrderCh <-chan InvalidOrder) {
+		select {
+		case order := <-validOrderCh:
+			fmt.Println("Valid order received:", order)
+		case order := <-invalidOrderCh:
+			fmt.Printf("Valid order received: %v. Issue: %v\n", order.order, order.err)
+		}
 		wg.Done()
-	}()
-	go func() {
-		invalidOrder := <-invalidOrderCh
-		fmt.Println("Invalid order received:", invalidOrder.order)
-		wg.Done()
-	}()
+	}(validOrderCh, invalidOrderCh)
+
 	wg.Wait()
-	// fmt.Println(orders)
 }
 
-func validateOrders(in, out chan Order, errCh chan InvalidOrder) {
-	// Grab order
-	order := <-in
-	if order.Quantity > 0 {
-		out <- order
-	} else {
-		errCh <- InvalidOrder{order: order, err: errors.New("qty must be greater than zero")}
+func mainDemoLoop() {
+	var wg sync.WaitGroup
+	// New Channels
+	var (
+		receivedOrdersCh = make(chan Order)
+		validOrderCh     = make(chan Order)
+		invalidOrderCh   = make(chan InvalidOrder)
+	)
+	wg.Add(1)
+	go receiveOrders(receivedOrdersCh)
+	go validateOrders(receivedOrdersCh, validOrderCh, invalidOrderCh)
+	go func(validOrderCh <-chan Order, invalidOrderCh <-chan InvalidOrder) {
+	loop:
+		for {
+			select {
+			// ok - status of the channel
+			case order, ok := <-validOrderCh:
+				if ok {
+					fmt.Println("Valid order received:", order)
+				} else {
+					break loop // break out of the loop
+				}
+			case order, ok := <-invalidOrderCh:
+				if ok {
+					fmt.Printf("Valid order received: %v. Issue: %v\n", order.order, order.err)
+				} else {
+					break loop
+				}
+			}
+		}
+		wg.Done()
+	}(validOrderCh, invalidOrderCh)
+
+	wg.Wait()
+}
+
+func validateOrders(in <-chan Order, out chan<- Order, errCh chan<- InvalidOrder) {
+	// order := <-in
+	for order := range in {
+		if order.Quantity > 0 {
+			out <- order
+		} else {
+			errCh <- InvalidOrder{order: order, err: errors.New("qty must be greater than zero")}
+		}
 	}
+	close(out)
+	close(errCh)
 }
 
-// func receiveOrders(wg *sync.WaitGroup) {
-func receiveOrders(out chan Order) {
+func receiveOrders(out chan<- Order) {
 	for _, rawOrder := range rawOrders {
 		var newOrder Order
 		err := json.Unmarshal([]byte(rawOrder), &newOrder)
@@ -53,10 +89,10 @@ func receiveOrders(out chan Order) {
 			log.Println(err)
 			continue
 		}
-		// orders = append(orders, newOrder)
 		out <- newOrder
+		// <-out // Compiler error
 	}
-	// wg.Done()
+	close(out)
 }
 
 var rawOrders = []string{
