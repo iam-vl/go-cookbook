@@ -1,7 +1,9 @@
 package main
 
 func main() {
-	mainDemoLoopReserve()
+	mainDemoLoopManyToOne()
+	// mainDemoLoopOneToMany()
+	// mainDemoLoopReserve()
 	// mainDemoLoopEncapsulate()
 	// mainDemoLoop()
 	// mainXFor()

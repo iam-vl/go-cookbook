@@ -8,6 +8,96 @@ import (
 	"sync"
 )
 
+func mainDemoLoopManyToOne() {
+	var wg sync.WaitGroup
+	var (
+		receivedOrdersCh             = receiveOrderEncapsulate()
+		validOrderCh, invalidOrderCh = validateOrdersEncapsulate(receivedOrdersCh)
+		reservedInventoryCh          = reserveInventoryMultipleProducer(validOrderCh) // new
+		filledOrderCh                = fillOrders(reservedInventoryCh)
+	)
+	wg.Add(2) // change here
+	// wg.Add(2)
+	go func(invalidOrderCh <-chan InvalidOrder) {
+		for order := range invalidOrderCh {
+			fmt.Printf("Invalid order received: %v. Issue: %v\n", order.order, order.err)
+		}
+		wg.Done()
+	}(invalidOrderCh)
+	go func(filledOrderCh <-chan Order) {
+		for order := range filledOrderCh {
+			fmt.Printf("Order has been completed: %v\n", order)
+		}
+		wg.Done()
+	}(filledOrderCh)
+	wg.Wait()
+}
+
+func reserveInventoryMultipleProducer(in <-chan Order) <-chan Order {
+	reservedOrderCh := make(chan Order)
+	var wg sync.WaitGroup
+
+	workers := 3
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			for o := range in {
+				o.Status = reserved
+				reservedOrderCh <- o
+			}
+			// close(out)
+			wg.Done()
+		}()
+	}
+	go func() {
+		wg.Wait()              // now we know all goroutines are done looping, no messages to
+		close(reservedOrderCh) // safe to close the channel
+	}()
+	return reservedOrderCh
+}
+
+// From reserved to filled
+func fillOrders(in <-chan Order) <-chan Order {
+	filledOrderCh := make(chan Order)
+	go func() {
+		for o := range in {
+			o.Status = filled
+			filledOrderCh <- o
+		}
+		close(filledOrderCh)
+	}()
+	return filledOrderCh
+}
+
+func mainDemoLoopOneToMany() {
+	var wg sync.WaitGroup
+	var (
+		receivedOrdersCh             = receiveOrderEncapsulate()
+		validOrderCh, invalidOrderCh = validateOrdersEncapsulate(receivedOrdersCh)
+		reservedInventoryCh          = reserveInventory(validOrderCh) // new
+	)
+	wg.Add(1) // change here
+	// wg.Add(2)
+	go func(invalidOrderCh <-chan InvalidOrder) {
+		for order := range invalidOrderCh {
+			fmt.Printf("Invalid order received: %v. Issue: %v\n", order.order, order.err)
+		}
+		wg.Done()
+	}(invalidOrderCh)
+
+	const workers = 3
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
+		go func(reservedInventoryCh <-chan Order) {
+			for order := range reservedInventoryCh {
+				fmt.Printf("Inventory reserved for: %v\n", order)
+			}
+			wg.Done()
+		}(reservedInventoryCh)
+	}
+	wg.Wait()
+}
+
 func mainDemoLoopReserve() {
 	var wg sync.WaitGroup
 	var (
@@ -93,7 +183,7 @@ func validateOrdersEncapsulate(in <-chan Order) (<-chan Order, <-chan InvalidOrd
 	go func() {
 		for order := range in { // we can handle one error, can't handle multiple
 			if order.Quantity > 0 {
-				fmt.Println("Validated order: %v", order)
+				fmt.Printf("Validated order: %v", order)
 				out <- order
 			} else {
 				errCh <- InvalidOrder{order: order, err: errors.New("qty must be greater than zero")}
